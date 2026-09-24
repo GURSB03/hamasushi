@@ -2,11 +2,14 @@ spring:
   config:
     import: optional:application-secret.yaml
   datasource:
-    url: jdbc:mysql://localhost:3307/hamasushi
+    url: jdbc:mysql://localhost:3307/hamasushi?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&allowPublicKeyRetrieval=true&useSSL=false
     username: root
     password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: update   # 개발 초기용. schema.sql로 관리하기 시작하면 validate 또는 none
+    properties:
+      hibernate:
+        format_sql: true
     show-sql: true
