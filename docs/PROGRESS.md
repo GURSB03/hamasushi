@@ -20,7 +20,7 @@
 
 ### 1-3. 도메인 / 엔티티 (패키지 구조는 3장 참고)
 - [ ] `domain/common` — `Japanese`, `English`
-- [ ] `domain` — `Category`, `Sentence`, `Word`, `WordBookmark`, `Theme`, `Story`, `Quiz`, `Answer`, `Users`, `Bookmark`, `Progress` (필드 각자 직접 작성, `@MappedSuperclass` 미사용)
+- [ ] `domain` — `Category`, `Sentence`, `Word`, `WordBookmark`, `Theme`, `Story`, `Quiz`, `QuizAnswer`, `Users`, `SentenceBookmark`, `Progress` (필드 각자 직접 작성, `@MappedSuperclass` 미사용)
 - [ ] `repository` — 도메인별 Repository 인터페이스
 - [ ] `service` — 도메인별 Service
 - [ ] `controller` — 도메인별 Controller
@@ -60,13 +60,14 @@
 | 2026-09-26 | 엔티티 공통 필드는 `@MappedSuperclass`로 추상화하지 않고, 각 엔티티에 직접 작성 | ~~배운 4계층 구조와 혼동 방지~~ → **번복됨 (아래 항목 참고)** |
 | 2026-09-26 | 패키지 구조는 **계층(레이어) 기준**으로 확정: `domain / repository / service / controller` | 배운 방식과 통일. `domain` 안에서 `Japanese`/`English`만 `common` 서브패키지로 분리 (Sentence·Word가 공유 참조하므로) |
 | 2026-09-26 | `domain` 패키지는 `com.hamasushi.hamasushi` **하위**에 생성 (형제 X) | `src/main/java` 바로 아래는 default package라 컴포넌트 스캔 대상에서 벗어남 |
-| 2026-09-26 | **(번복)** `@MappedSuperclass` 다시 도입: `LocalizedExpression`(Sentence/Word 공통), `BookmarkBase`(Bookmark/WordBookmark 공통) | 실제로 엔티티를 다 짜보니 `Sentence`↔`Word`, `Bookmark`↔`WordBookmark` 필드가 그대로 중복되는 게 체감됨. 인터페이스는 필드(상태) 상속이 안 돼서 이 문제엔 부적합 — JPA 필드 상속이 가능한 `@MappedSuperclass`가 유일한 해결책. 이제 JPA 기본기를 익힌 뒤라 혼동 우려보다 중복 제거 이득이 더 큼 |
-| 2026-09-26 | **(재번복, 최종)** `@MappedSuperclass` 도입 취소 → 각 엔티티에 필드 직접 작성으로 최종 확정 | 도입 검토 후 보류. 필요하면 나중에 다시 꺼내되, 지금은 각 엔티티(`Sentence`, `Word`, `Bookmark`, `WordBookmark`)에 필드를 그대로 각자 작성 |
+| 2026-09-26 | **(번복)** `@MappedSuperclass` 다시 도입: `LocalizedExpression`(Sentence/Word 공통), `BookmarkBase`(SentenceBookmark/WordBookmark 공통) | 실제로 엔티티를 다 짜보니 `Sentence`↔`Word`, `SentenceBookmark`↔`WordBookmark` 필드가 그대로 중복되는 게 체감됨. 인터페이스는 필드(상태) 상속이 안 돼서 이 문제엔 부적합 — JPA 필드 상속이 가능한 `@MappedSuperclass`가 유일한 해결책. 이제 JPA 기본기를 익힌 뒤라 혼동 우려보다 중복 제거 이득이 더 큼 |
+| 2026-09-26 | **(재번복, 최종)** `@MappedSuperclass` 도입 취소 → 각 엔티티에 필드 직접 작성으로 최종 확정 | 도입 검토 후 보류. 필요하면 나중에 다시 꺼내되, 지금은 각 엔티티(`Sentence`, `Word`, `SentenceBookmark`, `WordBookmark`)에 필드를 그대로 각자 작성 |
 | 2026-09-26 | Lombok 도입 확정 (`@Getter`, `@Setter`, `@NoArgsConstructor`) | 직접 타이핑 대신 사용. 단 엔티티엔 `@Data` 미사용 — 연관관계 필드 때문에 `@EqualsAndHashCode`/`@ToString`이 무한 루프 날 수 있어서 필요한 것만 골라 사용 |
 | 2026-09-27 | 퀴즈 캐시 목표 개수: **스텝(story_id)당 3개**, 스텝별 전역 공유(유저 무관) | 요청마다 캐시 개수 확인 → 3개 미만이면 즉시 생성+제공, 3개 이상이면 랜덤 제공. 실시간 생성 대비 트래픽 늘어도 AI 호출 비용 고정되는 이점 |
 | 2026-09-27 | 퀴즈 메뉴는 **로그인 필수**로 확정 | 비로그인 상태로 풀다가 로그인 시 소급 저장하는 경우 자체를 없앰. `PROGRESS`는 항상 `user_id` 확정된 상태로만 기록 |
 | 2026-09-27 | `ANSWER`에 `order_index`(Integer, nullable) 컬럼 추가 | 순서 맞추기(ORDERING) 유형 지원용. 다른 유형에선 항상 null. `int`가 아니라 `Integer`로 선언해야 nullable 표현 가능 |
 | 2026-09-27 | 카테고리 진행률 / 스토리 진행바 — ERD 변경 없이 계산값으로 처리 | 카테고리 진행률은 `THEME.category_id`+`PROGRESS` 조합 계산, 진행바는 `STORY.step_order`/전체 개수로 계산. "이어하기" 필요해지면 그때 `PROGRESS`에 컬럼 추가 |
+| 2026-09-27 | 엔티티명 확정: `Bookmark` → `SentenceBookmark`, `Answer` → `QuizAnswer` | `WordBookmark`와 대칭을 맞추고(`SentenceBookmark`/`WordBookmark`), `QuizAnswer`가 소속을 더 명확히 드러냄. DB 테이블명도 `SENTENCE_BOOKMARK`, `QUIZ_ANSWER`로 함께 변경 (클래스명을 따로 안 정하면 Hibernate가 테이블명을 클래스명 그대로 자동 생성하므로 테이블명도 같이 바뀌어야 함) |
 
 ---
 
@@ -87,12 +88,14 @@ com.hamasushi.hamasushi
  │   ├─ Theme.java
  │   ├─ Story.java
  │   ├─ Quiz.java
- │   ├─ Answer.java
+ │   ├─ QuizAnswer.java
  │   ├─ Users.java
- │   ├─ Bookmark.java
+ │   ├─ SentenceBookmark.java
  │   └─ Progress.java
  │
  ├─ repository/
+ │   ├─ JapaneseRepository.java
+ │   ├─ EnglishRepository.java
  │   ├─ CategoryRepository.java
  │   ├─ SentenceRepository.java
  │   ├─ WordRepository.java
@@ -100,9 +103,9 @@ com.hamasushi.hamasushi
  │   ├─ ThemeRepository.java
  │   ├─ StoryRepository.java
  │   ├─ QuizRepository.java
- │   ├─ AnswerRepository.java
+ │   ├─ QuizAnswerRepository.java
  │   ├─ UsersRepository.java
- │   ├─ BookmarkRepository.java
+ │   ├─ SentenceBookmarkRepository.java
  │   └─ ProgressRepository.java
  │
  ├─ service/
@@ -111,7 +114,7 @@ com.hamasushi.hamasushi
  │   ├─ StoryService.java
  │   ├─ QuizService.java
  │   ├─ UserService.java
- │   └─ BookmarkService.java
+ │   └─ SentenceBookmarkService.java
  │
  └─ controller/
      ├─ SentenceController.java
@@ -121,7 +124,7 @@ com.hamasushi.hamasushi
      └─ AuthController.java
 ```
 
-- `domain/common`에는 `Sentence`·`Word`가 공유 참조하는 `Japanese`/`English`만 둔다. 그 외 엔티티(`Sentence`, `Word`, `Bookmark`, `WordBookmark` 포함)는 각자 필요한 필드를 직접 선언한다 (`@MappedSuperclass` 미사용, 최종 확정).
+- `domain/common`에는 `Sentence`·`Word`가 공유 참조하는 `Japanese`/`English`만 둔다. 그 외 엔티티(`Sentence`, `Word`, `SentenceBookmark`, `WordBookmark` 포함)는 각자 필요한 필드를 직접 선언한다 (`@MappedSuperclass` 미사용, 최종 확정).
 
 ---
 

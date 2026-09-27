@@ -70,7 +70,7 @@
 | **THEME** | id, category_id, title | 스토리 한 편 (예: "공항에서 길 묻기") |
 | **STORY** | id, theme_id, sentence_id (nullable), step_order, narrative, speaker (ENUM), is_quiz | 스토리의 한 스텝. `step_order`로 순서 통제, `is_quiz = true`면 퀴즈 스텝 |
 | **QUIZ** | id, story_id, quiz_text, quiz_type (ENUM) | AI가 만든 문제와 문제 유형 |
-| **ANSWER** | id, quiz_id, answer, is_correct, explanation, order_index | 선택지 1개 = 1행. `explanation`은 **그 선택지의 해설** (AI JSON에서는 `explain` 키). `order_index`(Integer, nullable)는 **순서 맞추기(ORDERING) 유형 전용** — "이 조각이 몇 번째 자리가 정답인지". 다른 유형은 항상 null (`int`가 아니라 `Integer`로 선언해야 null 표현 가능) |
+| **QUIZ_ANSWER** | id, quiz_id, answer, is_correct, explanation, order_index | 선택지 1개 = 1행. `explanation`은 **그 선택지의 해설** (AI JSON에서는 `explain` 키). `order_index`(Integer, nullable)는 **순서 맞추기(ORDERING) 유형 전용** — "이 조각이 몇 번째 자리가 정답인지". 다른 유형은 항상 null (`int`가 아니라 `Integer`로 선언해야 null 표현 가능) |
 
 > 이름 주의: THEME이 "스토리 한 편", STORY가 "스토리의 한 스텝"이다. 헷갈리면 `STORY` / `STORY_STEP`으로 바꾸는 것도 고려할 수 있다.
 
@@ -79,8 +79,8 @@
 | 테이블 | 컬럼 | 역할 |
 |---|---|---|
 | **USERS** | id, email, kakao_id (unique), nickname | 카카오 로그인 사용자 |
-| **BOOKMARK** | id, user_id, sentence_id | 사용자가 저장한 예문 |
-| **WORD_BOOKMARK** | id, user_id, word_id | 사용자가 저장한 단어. `BOOKMARK`(예문)와는 화면·API가 분리돼 있어 별도 테이블로 확정 |
+| **SENTENCE_BOOKMARK** | id, user_id, sentence_id | 사용자가 저장한 예문 |
+| **WORD_BOOKMARK** | id, user_id, word_id | 사용자가 저장한 단어. `SENTENCE_BOOKMARK`(예문)와는 화면·API가 분리돼 있어 별도 테이블로 확정 |
 | **PROGRESS** | id, user_id, theme_id, complete | 사용자의 스토리 완주 기록 |
 
 ### 3-4. 관계 (1 : N)
@@ -92,8 +92,8 @@
 | THEME → STORY | 스토리 한 편에 여러 스텝 |
 | SENTENCE → STORY | 예문 하나가 여러 스텝에서 쓰일 수 있음 (스텝은 예문 없이도 가능) |
 | STORY → QUIZ | 스텝 하나에 퀴즈 여러 개 (캐시된 퀴즈 풀) |
-| QUIZ → ANSWER | 문제 하나에 선택지 여러 개 |
-| USERS → BOOKMARK ← SENTENCE | 사용자와 예문의 다대다 연결 |
+| QUIZ → QUIZ_ANSWER | 문제 하나에 선택지 여러 개 |
+| USERS → SENTENCE_BOOKMARK ← SENTENCE | 사용자와 예문의 다대다 연결 |
 | USERS → WORD_BOOKMARK ← WORD | 사용자와 단어의 다대다 연결 |
 | USERS → PROGRESS ← THEME | 사용자와 스토리의 다대다 연결 |
 
@@ -106,7 +106,7 @@
 | `password` 삭제 | 카카오 로그인이라 비밀번호를 받지 않음 |
 | `kakao_id` unique | 카카오 고유 번호로 가입 여부 확인, 중복 가입 방지 |
 | `STORY.sentence_id` nullable | 예문 없이 서사·대사만 있는 스텝 허용 |
-| `ANSWER.explanation` 유지 (컬럼명 `explain` → `explanation`) | **선택지마다 해설을 보여주기로 함.** `EXPLAIN`은 MySQL 예약어라 컬럼명으로 쓰면 SQL 오류 위험 |
+| `QUIZ_ANSWER.explanation` 유지 (컬럼명 `explain` → `explanation`) | **선택지마다 해설을 보여주기로 함.** `EXPLAIN`은 MySQL 예약어라 컬럼명으로 쓰면 SQL 오류 위험 |
 | `QUIZ.quiz_type` 추가 | 문제 유형(빈칸 채우기 등)에 따라 프롬프트와 검증이 달라짐 |
 
 ### 3-6. 아직 적용 안 한 항목 (DB 생성 시 반영 권장)
@@ -145,7 +145,7 @@
 
 ### 4-2. 1안: 실시간 생성 (저장 안 함)
 - 퀴즈가 필요할 때마다 AI에게 요청하고 쓰고 버린다.
-- ERD에서 QUIZ / ANSWER 테이블이 필요 없다.
+- ERD에서 QUIZ / QUIZ_ANSWER 테이블이 필요 없다.
 - 장점: 구조가 단순하고 매번 새 문제가 나온다.
 - 단점: 퀴즈 스텝마다 AI 응답을 기다려야 하고(수 초), 호출마다 비용이 들며, 이상한 문제를 걸러낼 방법이 코드 검증뿐이다.
 
@@ -172,12 +172,12 @@
 | AI 비용 | 높음 | 낮음 |
 | 문제 다양성 | 항상 새 문제 | 저장된 풀에서 랜덤 |
 | 품질 관리 | 코드 검증만 | 코드 검증 + 사람 검수 |
-| QUIZ/ANSWER 테이블 | 삭제 | 유지 |
+| QUIZ/QUIZ_ANSWER 테이블 | 삭제 | 유지 |
 
 ### 4-5. 개발 접근: 2안으로 가되 1안 순서로 시작
 1. 스토리 흐름을 **가짜 퀴즈 JSON(하드코딩)** 으로 먼저 완성한다 (`currentStepIndex` 로직 검증).
 2. AI 호출 + JSON 검증 + fallback을 붙인다 (이 단계가 곧 1안).
-3. 검증 통과한 퀴즈를 QUIZ/ANSWER에 저장하고 캐시 로직(목표 개수 3개, 4-3 참고)을 붙인다 (2안 완성).
+3. 검증 통과한 퀴즈를 QUIZ/QUIZ_ANSWER에 저장하고 캐시 로직(목표 개수 3개, 4-3 참고)을 붙인다 (2안 완성).
 
 ### 4-6. "대기 시간 0초"와의 충돌 해결
 정답 판별은 프론트에서 즉시 처리되지만, **퀴즈 내용을 가져오는 시점**에는 AI 응답을 기다릴 수 있다. 해결 방법은 다음과 같다.
@@ -190,7 +190,7 @@
 - 해설은 다 풀고 난 뒤 한 번에 표시 (정답/오답 선택지 전부).
 - 정답 여부(`is_correct`)와 해설(`explanation`)이 **퀴즈를 받아올 때 이미 다 같이 내려가 있으므로**, 이 인터랙션은 서버 재요청 없이 프론트 상태 관리만으로 처리 가능.
 
-### 4-8. 퀴즈 유형별 ANSWER 구조
+### 4-8. 퀴즈 유형별 QUIZ_ANSWER 구조
 
 | 유형 | 구조 | 비고 |
 |---|---|---|
@@ -222,9 +222,9 @@
 |---|---|
 | question | QUIZ.quiz_text |
 | quiz_type | QUIZ.quiz_type |
-| options[i].text | ANSWER.answer |
-| options[i].is_correct | ANSWER.is_correct |
-| options[i].explain | ANSWER.explanation |
+| options[i].text | QUIZ_ANSWER.answer |
+| options[i].is_correct | QUIZ_ANSWER.is_correct |
+| options[i].explain | QUIZ_ANSWER.explanation |
 
 ### 프롬프트에 넣을 재료 (예시)
 ```
@@ -287,11 +287,11 @@ system 프롬프트에는 "반드시 JSON 형식으로만 답하고, 정답은 �
 ```
 프론트 → 백엔드: 이 스텝의 퀴즈 요청
 백엔드: QUIZ에서 story_id로 개수 확인 (count)
-  ├ count >= 3 (목표 달성) → 기존 캐시 중 랜덤 1개 + ANSWER 조인 ──────────┐
+  ├ count >= 3 (목표 달성) → 기존 캐시 중 랜덤 1개 + QUIZ_ANSWER 조인 ──────────┐
   └ count < 3 (미달)                                                     │
        → STORY의 핵심 문장 + quiz_type으로 프롬프트 구성                  │
        → AI 호출 → JSON 검증 (실패 시 재시도, 그래도 실패면 대체 퀴즈)     │
-       → 통과한 것만 QUIZ + ANSWER에 저장, 방금 만든 걸 그대로 사용 ──────┤
+       → 통과한 것만 QUIZ + QUIZ_ANSWER에 저장, 방금 만든 걸 그대로 사용 ──────┤
 프론트 ←──────────────────────── 퀴즈 JSON ────────────────────────────────┘
 ```
 ※ 목표(3개) 미달 구간에서는 요청마다 항상 새로 생성 — "누가 요청했는지"와 무관하게 스텝별 전역 카운트만 본다.
@@ -312,7 +312,7 @@ system 프롬프트에는 "반드시 JSON 형식으로만 답하고, 정답은 �
 ### ⑥ 북마크
 ```
 프론트 → 백엔드: 예문 북마크 추가/삭제 (sentence_id)
-백엔드: BOOKMARK에 저장/삭제
+백엔드: SENTENCE_BOOKMARK에 저장/삭제
 
 프론트 → 백엔드: 단어 북마크 추가/삭제 (word_id)
 백엔드: WORD_BOOKMARK에 저장/삭제
@@ -334,7 +334,7 @@ system 프롬프트에는 "반드시 JSON 형식으로만 답하고, 정답은 �
     - 방법 A: 백엔드가 랜덤으로 유형을 골라 생성하고 결과를 `QUIZ.quiz_type`에 기록한다. (현재 ERD 그대로 가능, 문제가 다양해짐)
     - 방법 B: `STORY`에도 `quiz_type`을 두어 스텝마다 유형을 지정한다. (스토리 작성자가 통제하고 싶을 때)
     - 처음에는 A로 시작해도 충분하다.
-    - 유형 후보: `MULTIPLE_CHOICE`(4지선다), `FILL_BLANK`(빈칸 채우기), `SENTENCE_CHOICE`(문장 고르기), `ORDERING`(순서 맞추기 — `ANSWER.order_index` 사용, 4-8 참고)
+    - 유형 후보: `MULTIPLE_CHOICE`(4지선다), `FILL_BLANK`(빈칸 채우기), `SENTENCE_CHOICE`(문장 고르기), `ORDERING`(순서 맞추기 — `QUIZ_ANSWER.order_index` 사용, 4-8 참고)
 2. **`quiz_keyword`(상황 키워드)를 둘 것인가?** 없어도 `THEME.title`이나 `STORY.narrative`를 프롬프트에 넣어 대체할 수 있다.
 3. ~~**퀴즈를 언제 요청할 것인가?**~~ → **해결됨**: 요청마다 캐시 개수 확인 후 즉시 생성/제공 (목표 3개, 4-3 참고)
 4. **`STORY.speaker` ENUM 값** 확정
