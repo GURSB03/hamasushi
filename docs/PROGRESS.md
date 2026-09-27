@@ -63,6 +63,10 @@
 | 2026-09-26 | **(번복)** `@MappedSuperclass` 다시 도입: `LocalizedExpression`(Sentence/Word 공통), `BookmarkBase`(Bookmark/WordBookmark 공통) | 실제로 엔티티를 다 짜보니 `Sentence`↔`Word`, `Bookmark`↔`WordBookmark` 필드가 그대로 중복되는 게 체감됨. 인터페이스는 필드(상태) 상속이 안 돼서 이 문제엔 부적합 — JPA 필드 상속이 가능한 `@MappedSuperclass`가 유일한 해결책. 이제 JPA 기본기를 익힌 뒤라 혼동 우려보다 중복 제거 이득이 더 큼 |
 | 2026-09-26 | **(재번복, 최종)** `@MappedSuperclass` 도입 취소 → 각 엔티티에 필드 직접 작성으로 최종 확정 | 도입 검토 후 보류. 필요하면 나중에 다시 꺼내되, 지금은 각 엔티티(`Sentence`, `Word`, `Bookmark`, `WordBookmark`)에 필드를 그대로 각자 작성 |
 | 2026-09-26 | Lombok 도입 확정 (`@Getter`, `@Setter`, `@NoArgsConstructor`) | 직접 타이핑 대신 사용. 단 엔티티엔 `@Data` 미사용 — 연관관계 필드 때문에 `@EqualsAndHashCode`/`@ToString`이 무한 루프 날 수 있어서 필요한 것만 골라 사용 |
+| 2026-09-27 | 퀴즈 캐시 목표 개수: **스텝(story_id)당 3개**, 스텝별 전역 공유(유저 무관) | 요청마다 캐시 개수 확인 → 3개 미만이면 즉시 생성+제공, 3개 이상이면 랜덤 제공. 실시간 생성 대비 트래픽 늘어도 AI 호출 비용 고정되는 이점 |
+| 2026-09-27 | 퀴즈 메뉴는 **로그인 필수**로 확정 | 비로그인 상태로 풀다가 로그인 시 소급 저장하는 경우 자체를 없앰. `PROGRESS`는 항상 `user_id` 확정된 상태로만 기록 |
+| 2026-09-27 | `ANSWER`에 `order_index`(Integer, nullable) 컬럼 추가 | 순서 맞추기(ORDERING) 유형 지원용. 다른 유형에선 항상 null. `int`가 아니라 `Integer`로 선언해야 nullable 표현 가능 |
+| 2026-09-27 | 카테고리 진행률 / 스토리 진행바 — ERD 변경 없이 계산값으로 처리 | 카테고리 진행률은 `THEME.category_id`+`PROGRESS` 조합 계산, 진행바는 `STORY.step_order`/전체 개수로 계산. "이어하기" 필요해지면 그때 `PROGRESS`에 컬럼 추가 |
 
 ---
 

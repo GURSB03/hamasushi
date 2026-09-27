@@ -19,4 +19,7 @@ public class QuizAnswer {
     private String answer;
     private boolean isCorrect;
     private String explanation;
+
+    @Column(nullable = true)
+    private Integer orderIndex;
 }
